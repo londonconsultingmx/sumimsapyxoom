@@ -176,9 +176,9 @@ tr:hover td { background:#f8fafc; }
 
 <div class="tab-bar">
   <button class="tab-btn active" data-tab="upload">Inicio</button>
-  <button class="tab-btn" data-tab="general">Vista General</button>
-  <button class="tab-btn" data-tab="nivel">Por Nivel</button>
-  <button class="tab-btn" data-tab="depto">Por Departamento</button>
+  <button class="tab-btn" data-tab="general">Resultados Generales</button>
+  <button class="tab-btn" data-tab="depto">Por Subdirección / Departamento</button>
+  <button class="tab-btn" data-tab="nivel">Por Nivel Jerárquico</button>
   <button class="tab-btn" data-tab="persona">Por Persona</button>
   <button class="tab-btn" data-tab="comparativo">Comparativo Temporal</button>
 </div>
@@ -235,7 +235,7 @@ tr:hover td { background:#f8fafc; }
         <div class="chart-container tall"><canvas id="chartRadarGeneral"></canvas></div>
       </div>
       <div class="card">
-        <div class="card-title">Distribución de Calificaciones</div>
+        <div class="card-title">Personas por Rango vs Ideal</div>
         <div class="chart-container tall"><canvas id="chartDistGeneral"></canvas></div>
       </div>
     </div>
@@ -251,11 +251,11 @@ tr:hover td { background:#f8fafc; }
     <div class="stats-row" id="nivelStats"></div>
     <div class="chart-grid">
       <div class="card">
-        <div class="card-title">Radar por Nivel Seleccionado</div>
+        <div class="card-title">Radar por Nivel Jerárquico</div>
         <div class="chart-container tall"><canvas id="chartRadarNivel"></canvas></div>
       </div>
       <div class="card">
-        <div class="card-title">Comparativo entre Niveles</div>
+        <div class="card-title">Comparativo entre Niveles Jerárquicos</div>
         <div class="chart-container tall"><canvas id="chartBarNivel"></canvas></div>
       </div>
     </div>
@@ -271,7 +271,7 @@ tr:hover td { background:#f8fafc; }
     <div class="stats-row" id="deptoStats"></div>
     <div class="chart-grid">
       <div class="card">
-        <div class="card-title">Radar por Departamento</div>
+        <div class="card-title">Radar por Subdirección / Departamento</div>
         <div class="chart-container tall"><canvas id="chartRadarDepto"></canvas></div>
       </div>
       <div class="card">
@@ -280,7 +280,7 @@ tr:hover td { background:#f8fafc; }
       </div>
     </div>
     <div class="card">
-      <div class="card-title">Detalle por Departamento</div>
+      <div class="card-title">Detalle por Subdirección / Departamento</div>
       <div class="table-wrap"><table id="tableDepto"></table></div>
     </div>
   </div>
@@ -318,8 +318,9 @@ let DATA = [];
 let COMPETENCIAS = [];
 let NIVELES = [];
 let DEPTOS = [];
+let SUBDIRS = [];
 let charts = {};
-let CORTES = []; // Array of { id, name, date, data, competencias, niveles, deptos }
+let CORTES = []; // Array of { id, name, date, data, competencias, niveles, deptos, subdirs }
 let activeCorteId = null;
 
 const STORAGE_KEY = 'pyxoom_sumimsa_cortes';
@@ -485,6 +486,7 @@ function activateCorte(id) {
   COMPETENCIAS = corte.competencias;
   NIVELES = corte.niveles;
   DEPTOS = corte.deptos;
+  SUBDIRS = corte.subdirs || [...new Set(corte.data.map(d => d.subdir).filter(Boolean))].sort();
   document.getElementById('dataInfo').textContent = `${corte.name} · ${DATA.length} personas · ${COMPETENCIAS.length} competencias`;
   renderCortesList();
   renderAll();
@@ -498,7 +500,7 @@ function deleteCorte(id) {
       activateCorte(CORTES[CORTES.length - 1].id);
     } else {
       activeCorteId = null;
-      DATA = []; COMPETENCIAS = []; NIVELES = []; DEPTOS = [];
+      DATA = []; COMPETENCIAS = []; NIVELES = []; DEPTOS = []; SUBDIRS = [];
       document.getElementById('dataInfo').textContent = 'Sin datos cargados';
     }
   }
@@ -611,13 +613,14 @@ function parseWorkbook(wb, log, fileName) {
   const competencias = bestComps.competencias;
   const niveles = [...new Set(parsedData.map(d => d.nivel))].sort();
   const deptos = [...new Set(parsedData.map(d => d.depto))].sort();
+  const subdirs = [...new Set(parsedData.map(d => d.subdir).filter(Boolean))].sort();
 
   // Create corte
   const corteName = document.getElementById('corteName').value.trim() || fileName.replace(/\.(xlsx|xls|csv)$/i, '');
   const corteDate = document.getElementById('corteDate').value || new Date().toISOString().split('T')[0];
   const corteId = Date.now().toString(36) + Math.random().toString(36).slice(2,6);
 
-  const corte = { id: corteId, name: corteName, date: corteDate, data: parsedData, competencias, niveles, deptos };
+  const corte = { id: corteId, name: corteName, date: corteDate, data: parsedData, competencias, niveles, deptos, subdirs };
   CORTES.push(corte);
   saveCortes();
   activateCorte(corteId);
@@ -632,30 +635,40 @@ function parseWorkbook(wb, log, fileName) {
 function detectColumns(keys, rows) {
   const lowerKeys = keys.map(k => k.toLowerCase().trim());
 
-  const namePatterns = ['nombre completo', 'nombre', 'name', 'empleado', 'colaborador', 'participante', 'evaluado'];
-  let nombreCol = keys.find((k, i) => namePatterns.some(p => lowerKeys[i].includes(p)));
+  // Find NOMBRE COMPLETO first (exact match preferred)
+  let nombreCol = keys.find((k, i) => lowerKeys[i].includes('nombre completo'));
+  if (!nombreCol) nombreCol = keys.find((k, i) => ['nombre', 'name', 'empleado', 'colaborador', 'participante', 'evaluado'].some(p => lowerKeys[i].includes(p)));
   if (!nombreCol) nombreCol = keys[0];
 
-  const nivelPatterns = ['nivel', 'level', 'puesto', 'posición', 'posicion', 'jerarqu', 'rango'];
-  let nivelCol = keys.find((k, i) => nivelPatterns.some(p => lowerKeys[i] === p || (lowerKeys[i].includes(p) && !lowerKeys[i].includes('sub'))));
+  // NIVEL = Nivel Jerárquico
+  let nivelCol = keys.find((k, i) => lowerKeys[i] === 'nivel');
+  if (!nivelCol) nivelCol = keys.find((k, i) => ['nivel', 'level', 'jerarqu'].some(p => lowerKeys[i].includes(p) && !lowerKeys[i].includes('sub')));
 
-  const deptoPatterns = ['departamento', 'depto', 'department', 'área', 'area'];
-  let deptoCol = keys.find((k, i) => deptoPatterns.some(p => lowerKeys[i].includes(p)));
+  // DEPARTAMENTO
+  let deptoCol = keys.find((k, i) => lowerKeys[i] === 'departamento');
+  if (!deptoCol) deptoCol = keys.find((k, i) => ['departamento', 'depto', 'department'].some(p => lowerKeys[i].includes(p)));
 
-  const subdirPatterns = ['sub dirección', 'subdirección', 'subdireccion', 'dirección', 'direccion'];
-  let subdirCol = keys.find((k, i) => subdirPatterns.some(p => lowerKeys[i].includes(p)));
+  // SUB DIRECCIÓN
+  let subdirCol = keys.find((k, i) => lowerKeys[i].includes('sub dir'));
+  if (!subdirCol) subdirCol = keys.find((k, i) => ['subdirección', 'subdireccion', 'sub dirección', 'sub direccion', 'dirección', 'direccion'].some(p => lowerKeys[i].includes(p)));
 
-  const puestoPatterns = ['puesto', 'cargo', 'posición'];
-  let puestoCol = keys.find((k, i) => puestoPatterns.some(p => lowerKeys[i] === p));
+  // PUESTO
+  let puestoCol = keys.find((k, i) => lowerKeys[i] === 'puesto');
+  if (!puestoCol) puestoCol = keys.find((k, i) => ['puesto', 'cargo'].some(p => lowerKeys[i] === p));
 
-  const ubicacionPatterns = ['ubicación', 'ubicacion', 'ciudad', 'locación'];
-  let ubicacionCol = keys.find((k, i) => ubicacionPatterns.some(p => lowerKeys[i].includes(p)));
+  // UBICACIÓN
+  let ubicacionCol = keys.find((k, i) => ['ubicación', 'ubicacion', 'ubicación física'].some(p => lowerKeys[i].includes(p)));
 
   const skipCols = new Set([nombreCol, nivelCol, deptoCol, subdirCol, puestoCol, ubicacionCol].filter(Boolean));
-  // Also skip obvious non-score columns
-  const skipPatterns = ['#', 'id', 'empleado', 'nombre', 'apellido', 'sexo', 'género', 'genero', 'email', 'correo'];
+  // Also skip obvious non-score columns by pattern
+  const skipPatterns = ['#', 'id', 'empleado', 'nombre', 'apellido', 'sexo', 'género', 'genero', 'email', 'correo', 'nombres'];
   for (const key of keys) {
-    if (skipPatterns.some(p => key.toLowerCase().trim().includes(p) || key.toLowerCase().trim() === p)) {
+    const lk = key.toLowerCase().trim();
+    if (skipPatterns.some(p => lk === p || lk.startsWith(p + ' ') || (p === '#' && (lk === '#' || lk === '# empleado')))) {
+      skipCols.add(key);
+    }
+    // Skip duplicate nombre columns, apellido columns
+    if (lk.includes('apellido') || lk === 'nombres' || (lk.includes('nombre') && key !== nombreCol)) {
       skipCols.add(key);
     }
   }
@@ -775,17 +788,26 @@ function renderGeneral() {
     options: { responsive: true, maintainAspectRatio: false, scales: { r: { min: 0, max: 5, ticks: { stepSize: 1, font: { size: 9 } }, pointLabels: { font: { size: 9 } } } }, plugins: { legend: { display: false } } }
   });
 
-  // Distribution
-  const distData = [0,0,0,0,0];
-  DATA.forEach(d => { Object.values(d.scores).forEach(v => { if (v !== null) distData[Math.max(0, Math.min(4, Math.round(v) - 1))]++; }); });
+  // Personas por rango vs ideal
+  let aboveIdeal = 0, within05 = 0, below05 = 0, below1 = 0, below15 = 0;
+  DATA.forEach(d => {
+    const personAvg = avg(Object.values(d.scores).filter(v => v !== null));
+    const personIdeal = avg(COMPETENCIAS.map(c => getIdeal(c, d.nivel)));
+    const gap = personIdeal - personAvg;
+    if (gap <= 0) aboveIdeal++;
+    else if (gap <= 0.5) within05++;
+    else if (gap <= 1.0) below05++;
+    else if (gap <= 1.5) below1++;
+    else below15++;
+  });
   destroyChart('distGeneral');
   charts.distGeneral = new Chart(document.getElementById('chartDistGeneral'), {
     type: 'bar',
     data: {
-      labels: ['1 - Insuficiente', '2 - En Desarrollo', '3 - Competente', '4 - Destacado', '5 - Excepcional'],
-      datasets: [{ data: distData, backgroundColor: ['#fecaca','#fed7aa','#fef08a','#bbf7d0','#bfdbfe'], borderColor: ['#dc2626','#ea580c','#ca8a04','#16a34a','#2563eb'], borderWidth: 1 }]
+      labels: ['Sobre Ideal', 'Brecha ≤ 0.5', 'Brecha 0.5–1.0', 'Brecha 1.0–1.5', 'Brecha > 1.5'],
+      datasets: [{ data: [aboveIdeal, within05, below05, below1, below15], backgroundColor: ['#bbf7d0','#bfdbfe','#fef08a','#fed7aa','#fecaca'], borderColor: ['#16a34a','#2563eb','#ca8a04','#ea580c','#dc2626'], borderWidth: 1 }]
     },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, title: { display: true, text: 'Frecuencia' } } } }
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 }, title: { display: true, text: 'Personas' } } } }
   });
 
   // Gap bars
@@ -817,7 +839,7 @@ function renderNivel() {
       <label>Nivel Jerárquico</label>
       <select id="selectNivel" onchange="updateNivel()">
         <option value="__all__">Todos los Niveles</option>
-        ${NIVELES.map(n => `<option value="${n}">${n} ${tierBadge(n)}</option>`).join('')}
+        ${NIVELES.map(n => `<option value="${n}">${n}</option>`).join('')}
       </select>
     </div>
   `;
@@ -891,6 +913,13 @@ function renderDepto() {
   const filtersEl = document.getElementById('filtersDepto');
   filtersEl.innerHTML = `
     <div class="filter-group">
+      <label>Subdirección</label>
+      <select id="selectSubdir" onchange="onSubdirChange()">
+        <option value="__all__">Todas las Subdirecciones</option>
+        ${SUBDIRS.map(s => `<option value="${s}">${s}</option>`).join('')}
+      </select>
+    </div>
+    <div class="filter-group">
       <label>Departamento</label>
       <select id="selectDepto" onchange="updateDepto()">
         <option value="__all__">Todos los Departamentos</option>
@@ -901,15 +930,30 @@ function renderDepto() {
   updateDepto();
 }
 
-function updateDepto() {
-  const sel = document.getElementById('selectDepto').value;
-  const filtered = sel === '__all__' ? DATA : DATA.filter(d => d.depto === sel);
+function onSubdirChange() {
+  const subdir = document.getElementById('selectSubdir').value;
+  const deptoSelect = document.getElementById('selectDepto');
+  // Filter departamento options based on selected subdir
+  const filteredDeptos = subdir === '__all__' ? DEPTOS : [...new Set(DATA.filter(d => d.subdir === subdir).map(d => d.depto))].sort();
+  deptoSelect.innerHTML = `<option value="__all__">Todos los Departamentos</option>` + filteredDeptos.map(d => `<option value="${d}">${d}</option>`).join('');
+  updateDepto();
+}
 
+function updateDepto() {
+  const subdirSel = document.getElementById('selectSubdir')?.value || '__all__';
+  const deptoSel = document.getElementById('selectDepto').value;
+  let filtered = DATA;
+  if (subdirSel !== '__all__') filtered = filtered.filter(d => d.subdir === subdirSel);
+  if (deptoSel !== '__all__') filtered = filtered.filter(d => d.depto === deptoSel);
+
+  const activeDeptos = [...new Set(filtered.map(d => d.depto))].sort();
   const allScores = filtered.flatMap(d => Object.values(d.scores).filter(v => v !== null));
+  const subdirLabel = subdirSel !== '__all__' ? subdirSel : 'Todas';
   document.getElementById('deptoStats').innerHTML = `
     <div class="stat-card"><div class="label">Personas</div><div class="value">${filtered.length}</div></div>
     <div class="stat-card accent"><div class="label">Promedio</div><div class="value">${round(avg(allScores))}</div></div>
-    <div class="stat-card"><div class="label">Departamentos</div><div class="value">${sel === '__all__' ? DEPTOS.length : 1}</div></div>
+    <div class="stat-card"><div class="label">Subdirección</div><div class="value" style="font-size:14px;">${subdirLabel}</div></div>
+    <div class="stat-card"><div class="label">Departamentos</div><div class="value">${activeDeptos.length}</div></div>
   `;
 
   const realAvgs = COMPETENCIAS.map(c => round(avg(filtered.map(d => d.scores[c]).filter(v => v !== null))));
@@ -928,8 +972,8 @@ function updateDepto() {
     options: { responsive: true, maintainAspectRatio: false, scales: { r: { min: 0, max: 5, ticks: { stepSize: 1, font: { size: 9 } }, pointLabels: { font: { size: 9 } } } }, plugins: { legend: { position: 'bottom' } } }
   });
 
-  const deptSets = DEPTOS.map((dep, i) => {
-    const dData = DATA.filter(d => d.depto === dep);
+  const deptSets = activeDeptos.map((dep, i) => {
+    const dData = filtered.filter(d => d.depto === dep);
     return {
       label: dep,
       data: COMPETENCIAS.map(c => round(avg(dData.map(d => d.scores[c]).filter(v => v !== null)))),
@@ -946,13 +990,13 @@ function updateDepto() {
     options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 5 }, x: { ticks: { font: { size: 8 } } } }, plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } } }
   });
 
-  let tableHtml = '<thead><tr><th>Departamento</th><th>Personas</th>';
+  let tableHtml = '<thead><tr><th>Subdirección</th><th>Departamento</th><th>Personas</th>';
   COMPETENCIAS.forEach(c => { tableHtml += `<th>${c.length > 12 ? c.slice(0,10)+'…' : c}</th>`; });
   tableHtml += '<th>Promedio</th></tr></thead><tbody>';
-  DEPTOS.forEach(dep => {
-    const dData = DATA.filter(d => d.depto === dep);
-    if (sel !== '__all__' && dep !== sel) return;
-    tableHtml += `<tr><td style="font-weight:600;">${dep}</td><td>${dData.length}</td>`;
+  activeDeptos.forEach(dep => {
+    const dData = filtered.filter(d => d.depto === dep);
+    const subdir = dData[0]?.subdir || '—';
+    tableHtml += `<tr><td style="font-size:12px;color:var(--text-muted);">${subdir}</td><td style="font-weight:600;">${dep}</td><td>${dData.length}</td>`;
     let rowScores = [];
     COMPETENCIAS.forEach(c => {
       const val = avg(dData.map(d => d.scores[c]).filter(v => v !== null));
