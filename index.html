@@ -222,6 +222,7 @@ tr:hover td { background:#f8fafc; }
     <span id="dataInfo">Sin datos cargados</span>
     <button class="btn btn-accent" onclick="document.getElementById('fileInput').click()">Cargar Excel</button>
     <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none">
+    <button class="btn btn-outline" style="color:#fff;border-color:rgba(255,255,255,.3);font-size:12px;padding:5px 12px;" onclick="logout()">Cerrar sesión</button>
   </div>
 </div>
 
@@ -1674,6 +1675,15 @@ function checkAuth() {
   if (sessionStorage.getItem('pyxoom_auth') === '1') {
     showApp();
   }
+}
+
+function logout() {
+  sessionStorage.removeItem('pyxoom_auth');
+  document.getElementById('appContainer').style.display = 'none';
+  document.getElementById('loginOverlay').style.display = 'flex';
+  document.getElementById('loginUser').value = '';
+  document.getElementById('loginPass').value = '';
+  document.getElementById('loginError').textContent = '';
 }
 
 // ─── INIT ───
