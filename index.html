@@ -919,14 +919,9 @@ function renderGeneral() {
 }
 
 function generateGeneralConclusions(sorted, globalAvg, globalIdeal, gap) {
-  const top3 = sorted.slice(-3).reverse();
-  const bottom3 = sorted.slice(0, 3);
   const totalPersonas = DATA.length;
-
-  // Apega classification for the org
   const orgApega = getApega(globalAvg, globalIdeal);
 
-  // Count personas by apega
   const apegaDist = {};
   APEGA_RANGES.forEach(r => apegaDist[r.label] = 0);
   DATA.forEach(d => {
@@ -934,45 +929,39 @@ function generateGeneralConclusions(sorted, globalAvg, globalIdeal, gap) {
     const pIdeal = avg(COMPETENCIAS.map(c => getIdeal(c, d.nivel)));
     apegaDist[getApega(pAvg, pIdeal).label]++;
   });
-
   const bajaCount = apegaDist['Baja Adecuación'];
   const reservasCount = apegaDist['Con Reservas'];
   const optimoSobre = apegaDist['Óptimo'] + apegaDist['Sobresaliente'];
 
-  // Competency clusters
   const leadershipComps = ['Liderazgo', 'Delegación', 'Empowerment', 'Team Building', 'Desarrollo de las Personas'];
   const strategicComps = ['Pensamiento Estratégico', 'Toma de Decisiones', 'Planeación', 'Innovación'];
-
-  const leadershipApega = getApega(
-    avg(sorted.filter(s => leadershipComps.includes(s.comp)).map(s => s.real)),
-    avg(sorted.filter(s => leadershipComps.includes(s.comp)).map(s => s.ideal))
-  );
-  const strategicApega = getApega(
-    avg(sorted.filter(s => strategicComps.includes(s.comp)).map(s => s.real)),
-    avg(sorted.filter(s => strategicComps.includes(s.comp)).map(s => s.ideal))
-  );
-
-  // Top/bottom competency apega
+  const executionComps = ['Control de Actividades', 'Organización', 'Responsabilidad', 'Enfoque en Resultados'];
+  const leadershipApega = getApega(avg(sorted.filter(s => leadershipComps.includes(s.comp)).map(s => s.real)), avg(sorted.filter(s => leadershipComps.includes(s.comp)).map(s => s.ideal)));
+  const strategicApega = getApega(avg(sorted.filter(s => strategicComps.includes(s.comp)).map(s => s.real)), avg(sorted.filter(s => strategicComps.includes(s.comp)).map(s => s.ideal)));
+  const executionApega = getApega(avg(sorted.filter(s => executionComps.includes(s.comp)).map(s => s.real)), avg(sorted.filter(s => executionComps.includes(s.comp)).map(s => s.ideal)));
   const compApegas = sorted.map(s => ({ ...s, apega: getApega(s.real, s.ideal) }));
 
   let items = [];
-  items.push(`La organización presenta una <strong>Apega de Perfil</strong> general clasificada como <strong>${orgApega.label} (${orgApega.pct}%)</strong>, con un promedio de <strong>${globalAvg}</strong> sobre un ideal ponderado de <strong>${globalIdeal}</strong>. Según el modelo de madurez competencial de Korn Ferry, un nivel de apega inferior al 70% indica necesidad de intervención estructural en desarrollo de talento.`);
+  items.push(`La organización presenta una <strong>Apega de Perfil general de ${orgApega.label} (${orgApega.pct}%)</strong>, con un promedio de <strong>${globalAvg}</strong> sobre un ideal ponderado de <strong>${globalIdeal}</strong>. Esto significa que, en promedio, los colaboradores están alcanzando el ${orgApega.pct}% del nivel de competencias esperado para su puesto. ${orgApega.pct < 71 ? 'Este nivel requiere una estrategia integral de desarrollo que combine intervenciones a nivel organizacional, de equipo e individual.' : orgApega.pct < 78 ? 'La organización se encuentra en una zona de desarrollo activo donde intervenciones focalizadas pueden generar mejoras significativas en el corto plazo.' : 'La organización muestra un nivel saludable de desarrollo competencial, con oportunidad de llevar a más colaboradores al nivel Sobresaliente.'}`);
 
-  items.push(`De ${totalPersonas} colaboradores: <strong>${optimoSobre}</strong> se encuentran en nivel Óptimo o Sobresaliente (≥78%), <strong>${apegaDist['Adecuado']}</strong> en Adecuado (71-77%), <strong>${reservasCount}</strong> Con Reservas (61-70%) y <strong>${bajaCount}</strong> en Baja Adecuación (≤60%). El benchmark de DDI para organizaciones de alto desempeño sitúa al menos 40% del personal en Óptimo o superior.`);
+  items.push(`De los ${totalPersonas} colaboradores evaluados: <strong>${optimoSobre} (${round(optimoSobre/totalPersonas*100,0)}%)</strong> se encuentran en nivel Óptimo o Sobresaliente, <strong>${apegaDist['Adecuado']}</strong> en Adecuado, <strong>${reservasCount}</strong> Con Reservas y <strong>${bajaCount}</strong> en Baja Adecuación. Se recomienda priorizar la atención en los ${bajaCount + reservasCount} colaboradores que están por debajo del nivel Adecuado, diseñando para ellos planes de acción con metas a 90 días que incluyan acompañamiento de su jefe directo, asignación de proyectos retadores y sesiones de retroalimentación quincenal.`);
 
   if (bajaCount > 0) {
-    items.push(`<strong>${bajaCount} colaboradores (${round(bajaCount/totalPersonas*100,0)}%)</strong> están en Baja Adecuación (≤60% de apega). El modelo de Leadership Pipeline de Ram Charan sugiere que estos casos requieren planes de desarrollo individualizados, coaching intensivo y posible redefinición de rol.`);
+    items.push(`Los <strong>${bajaCount} colaboradores en Baja Adecuación (${round(bajaCount/totalPersonas*100,0)}%)</strong> necesitan atención inmediata. Se sugiere: (1) reunión individual con su líder para establecer un plan de desarrollo con objetivos específicos y medibles, (2) asignar un mentor o coach interno que les acompañe durante al menos 3 meses, (3) evaluar si existe un desajuste entre el perfil del puesto y las capacidades actuales de la persona, y en caso necesario considerar movimientos laterales que aprovechen mejor sus fortalezas.`);
   }
 
-  items.push(`Las competencias con <strong>mejor apega</strong> son: ${compApegas.slice(-3).reverse().map(s => `<strong>${s.comp}</strong> (${s.apega.label}, ${s.apega.pct}%)`).join(', ')}. Según el modelo de Appreciative Inquiry (Cooperrider & Whitney), estas fortalezas deben capitalizarse como base para el desarrollo organizacional.`);
+  items.push(`Las competencias con <strong>mejor apega</strong> son: ${compApegas.slice(-3).reverse().map(s => `<strong>${s.comp}</strong> (${s.apega.label}, ${s.apega.pct}%)`).join(', ')}. Estas representan las ventajas competitivas de la organización. Se recomienda documentar las prácticas y comportamientos que están generando estos resultados, crear comunidades de práctica internas donde los colaboradores destacados compartan sus métodos, y utilizar estas fortalezas como ancla para desarrollar las competencias más débiles.`);
 
-  items.push(`Las competencias con <strong>menor apega</strong> son: ${compApegas.slice(0,3).map(s => `<strong>${s.comp}</strong> (${s.apega.label}, ${s.apega.pct}%)`).join(', ')}. El marco 70-20-10 de Lombardo & Eichinger recomienda 70% experiencias en el trabajo, 20% coaching/mentoría y 10% capacitación formal.`);
+  items.push(`Las competencias con <strong>menor apega</strong> son: ${compApegas.slice(0,3).map(s => `<strong>${s.comp}</strong> (${s.apega.label}, ${s.apega.pct}%)`).join(', ')}. Para cerrar estas brechas se recomienda un enfoque mixto: asignar proyectos específicos que exijan el uso de estas competencias (70% del desarrollo), implementar programas de mentoría cruzada entre áreas con pares que destaquen en estas competencias (20%), y complementar con talleres prácticos o certificaciones externas focalizadas (10%).`);
 
   if (leadershipApega.pct < 75) {
-    items.push(`El cluster de <strong>Liderazgo</strong> presenta apega de <strong>${leadershipApega.label} (${leadershipApega.pct}%)</strong>. Según Hersey & Blanchard, esto requiere programas diferenciados por nivel de madurez.`);
+    items.push(`El cluster de competencias de <strong>Liderazgo</strong> presenta apega de <strong>${leadershipApega.label} (${leadershipApega.pct}%)</strong>. Esto tiene impacto directo en la capacidad de la organización para ejecutar su estrategia, ya que los líderes son quienes traducen los objetivos en acciones de equipo. Se recomienda implementar un programa de desarrollo de liderazgo diferenciado por nivel: para niveles estratégicos, enfocarse en pensamiento sistémico y desarrollo de sucesores; para niveles tácticos, en delegación efectiva y gestión del desempeño; para supervisores, en comunicación de expectativas y retroalimentación constructiva.`);
   }
   if (strategicApega.pct < 75) {
-    items.push(`Las competencias <strong>estratégicas</strong> muestran apega de <strong>${strategicApega.label} (${strategicApega.pct}%)</strong>. Mintzberg indica que estas se desarrollan mediante exposición a decisiones de negocio y proyectos cross-funcionales.`);
+    items.push(`Las competencias <strong>estratégicas</strong> (Pensamiento Estratégico, Toma de Decisiones, Planeación, Innovación) muestran apega de <strong>${strategicApega.label} (${strategicApega.pct}%)</strong>. Para fortalecerlas se recomienda: involucrar a mandos medios en sesiones de planeación estratégica para que entiendan el contexto del negocio, crear espacios de innovación donde equipos multidisciplinarios resuelvan problemas reales de la operación, y establecer un proceso formal de toma de decisiones que permita a los colaboradores practicar el análisis de alternativas con supervisión de su líder.`);
+  }
+  if (executionApega.pct < 75) {
+    items.push(`Las competencias de <strong>ejecución</strong> (Control de Actividades, Organización, Responsabilidad, Enfoque en Resultados) muestran apega de <strong>${executionApega.label} (${executionApega.pct}%)</strong>. Se sugiere implementar metodologías de gestión visual en los equipos (tableros Kanban, reuniones diarias de 15 minutos), establecer indicadores claros por puesto con revisión semanal, y reconocer públicamente los logros de cumplimiento para reforzar la cultura de resultados.`);
   }
 
   document.getElementById('conclusionsGeneral').innerHTML = `
@@ -980,13 +969,8 @@ function generateGeneralConclusions(sorted, globalAvg, globalIdeal, gap) {
       <h4>Conclusiones y Recomendaciones — Resultados Generales</h4>
       <ul>${items.map(i => `<li>${i}</li>`).join('')}</ul>
       <div class="source">
-        Clasificación: Apega de Perfil — Baja Adecuación (0-60%), Con Reservas (61-70%), Adecuado (71-77%), Óptimo (78-86%), Sobresaliente (87-100%).<br>
-        Fuentes: Korn Ferry — Competency Framework & Maturity Model (2023); DDI — Global Leadership Forecast (2023);
-        Ram Charan, Stephen Drotter & James Noel — The Leadership Pipeline (2011);
-        Cooperrider & Whitney — Appreciative Inquiry (2005);
-        Lombardo & Eichinger — 70-20-10 Model (2004);
-        Hersey & Blanchard — Management of Organizational Behavior (2012);
-        Mintzberg — The Rise and Fall of Strategic Planning (1994).
+        Clasificación Apega de Perfil: Baja Adecuación (0-60%) · Con Reservas (61-70%) · Adecuado (71-77%) · Óptimo (78-86%) · Sobresaliente (87-100%).<br>
+        Fuentes: Korn Ferry, Competency Framework (2023) · DDI, Global Leadership Forecast (2023) · Charan, Drotter & Noel, The Leadership Pipeline (2011) · Lombardo & Eichinger, Modelo 70-20-10 (2004) · Hersey & Blanchard, Liderazgo Situacional (2012) · Mintzberg, Pensamiento Estratégico (1994).
       </div>
     </div>`;
 }
@@ -1077,26 +1061,23 @@ function renderResumen() {
 
 function generateResumenConclusions(subdirData, deptoData, nivelData, empresaAvg) {
   let items = [];
-
-  // Classify each subdirección by Apega
   const subdirApega = subdirData.map(s => ({ ...s, apega: getApega(s.real, s.ideal) }));
   const bestSubdir = subdirApega[0];
   const worstSubdir = subdirApega[subdirApega.length - 1];
+
   if (bestSubdir && worstSubdir && bestSubdir.name !== worstSubdir.name) {
-    items.push(`La subdirección con mejor apega es <strong>${bestSubdir.name}</strong> (${bestSubdir.apega.label}, ${bestSubdir.apega.pct}%) y la de mayor oportunidad es <strong>${worstSubdir.name}</strong> (${worstSubdir.apega.label}, ${worstSubdir.apega.pct}%). McKinsey (OHI) indica que diferencias significativas entre unidades sugieren desalineación en gestión del talento.`);
+    items.push(`La subdirección con mejor apega es <strong>${bestSubdir.name}</strong> (${bestSubdir.apega.label}, ${bestSubdir.apega.pct}%) y la de mayor oportunidad es <strong>${worstSubdir.name}</strong> (${worstSubdir.apega.label}, ${worstSubdir.apega.pct}%). Esta dispersión entre subdirecciones sugiere que las prácticas de gestión del talento no se están aplicando de manera homogénea. Se recomienda que Capital Humano facilite sesiones de intercambio de mejores prácticas entre subdirecciones, donde las áreas con mejores resultados compartan sus métodos de desarrollo, retroalimentación y seguimiento de competencias.`);
   }
 
-  // Departamentos by Apega
   const deptoApega = deptoData.map(d => ({ ...d, apega: getApega(d.real, d.ideal) })).sort((a,b) => a.apega.pct - b.apega.pct);
   const deptosOptimo = deptoApega.filter(d => d.apega.pct >= 78).length;
   const deptosBaja = deptoApega.filter(d => d.apega.pct <= 60);
-  items.push(`<strong>${deptosOptimo}</strong> de ${deptoData.length} departamentos alcanzan nivel Óptimo o Sobresaliente (≥78%). ${deptosBaja.length > 0 ? `Departamentos en Baja Adecuación: ${deptosBaja.map(d => `<strong>${d.name}</strong> (${d.apega.pct}%)`).join(', ')}.` : ''} Ulrich recomienda alinear inversiones de desarrollo con las áreas de mayor impacto estratégico.`);
+  items.push(`<strong>${deptosOptimo}</strong> de ${deptoData.length} departamentos alcanzan nivel Óptimo o Sobresaliente. ${deptosBaja.length > 0 ? `Los departamentos en Baja Adecuación son: ${deptosBaja.map(d => `<strong>${d.name}</strong> (${d.apega.pct}%)`).join(', ')}. Para estos departamentos se recomienda un diagnóstico profundo que identifique si las brechas se deben a falta de capacitación, rotación de personal, carga de trabajo excesiva o desalineación del perfil de puesto.` : 'Todos los departamentos superan el nivel de Baja Adecuación, lo cual es positivo.'} Las inversiones en desarrollo deben priorizarse en los departamentos con mayor impacto en la cadena de valor del negocio.`);
 
-  // Nivel by Apega
   const nivelApega = nivelData.map(n => ({ ...n, apega: getApega(n.real, n.ideal) })).sort((a,b) => a.apega.pct - b.apega.pct);
   const criticalNivel = nivelApega[0];
   if (criticalNivel) {
-    items.push(`El nivel jerárquico con menor apega es <strong>${criticalNivel.name}</strong> (${criticalNivel.apega.label}, ${criticalNivel.apega.pct}%, ${criticalNivel.count} personas). Drotter señala que cada transición de nivel requiere cambios fundamentales; las brechas en niveles de gestión impactan en cascada a toda la organización.`);
+    items.push(`El nivel jerárquico con menor apega es <strong>${criticalNivel.name}</strong> (${criticalNivel.apega.label}, ${criticalNivel.apega.pct}%, ${criticalNivel.count} personas). Esto es relevante porque las brechas en cualquier nivel de la cadena de mando generan un efecto cascada: si los mandos medios no dominan competencias de planeación y delegación, sus equipos operativos también se verán limitados. Se recomienda diseñar un programa de desarrollo escalonado que comience por los niveles con mayor brecha y contemple seguimiento trimestral con indicadores concretos de avance.`);
   }
 
   const strategicNiveles = nivelApega.filter(n => n.tier === 'Strategic');
@@ -1104,18 +1085,18 @@ function generateResumenConclusions(subdirData, deptoData, nivelData, empresaAvg
   if (strategicNiveles.length > 0 && operationalNiveles.length > 0) {
     const stratApega = round(avg(strategicNiveles.map(n => n.apega.pct)), 0);
     const operApega = round(avg(operationalNiveles.map(n => n.apega.pct)), 0);
-    items.push(`Los niveles estratégicos tienen apega promedio de <strong>${stratApega}%</strong> y los técnico-operativos de <strong>${operApega}%</strong>. SHL espera que niveles superiores muestren mayor dominio en liderazgo y estrategia, con exigencias diferenciadas por tier.`);
+    items.push(`Los niveles estratégicos (Gerente/Subgerente) tienen apega promedio de <strong>${stratApega}%</strong> y los técnico-operativos de <strong>${operApega}%</strong>. ${stratApega < operApega ? 'El hecho de que los niveles de liderazgo tengan menor apega que los operativos es una señal de alerta: indica que quienes deben guiar el desarrollo de otros necesitan primero fortalecer sus propias competencias. Se sugiere priorizar la inversión en el desarrollo de los líderes antes de escalar programas masivos.' : 'Es esperado que los niveles estratégicos muestren mayor apega dado que se les exige más en competencias de liderazgo pero típicamente tienen más experiencia. Se recomienda enfocar los esfuerzos de desarrollo en los niveles tácticos y operativos con programas de mentoría donde los niveles estratégicos sean los facilitadores.'}`);
   }
 
-  items.push(`Se recomienda diseñar planes diferenciados por tier siguiendo el 9-Box Grid de McKinsey, priorizando colaboradores de alto potencial con apega por debajo de Adecuado (<71%).`);
+  items.push(`<strong>Plan de acción recomendado:</strong> (1) Presentar estos resultados en sesión con el Comité Directivo para alinear prioridades. (2) Diseñar planes de desarrollo diferenciados por tier, priorizando colaboradores con apega por debajo de Adecuado (<71%). (3) Establecer un tablero de seguimiento con metas trimestrales por subdirección. (4) Programar una re-evaluación en 6-9 meses para medir el avance y ajustar las intervenciones.`);
 
   document.getElementById('conclusionsResumen').innerHTML = `
     <div class="conclusions">
       <h4>Conclusiones — Resumen Ejecutivo</h4>
       <ul>${items.map(i => `<li>${i}</li>`).join('')}</ul>
       <div class="source">
-        Clasificación: Apega de Perfil — Baja Adecuación (0-60%), Con Reservas (61-70%), Adecuado (71-77%), Óptimo (78-86%), Sobresaliente (87-100%).<br>
-        Fuentes: McKinsey — OHI (2023); Ulrich — HR from the Outside In (2012); Drotter — Leadership Pipeline (2011); SHL — Proficiency Levels (2022); McKinsey — 9-Box Grid.
+        Clasificación Apega de Perfil: Baja Adecuación (0-60%) · Con Reservas (61-70%) · Adecuado (71-77%) · Óptimo (78-86%) · Sobresaliente (87-100%).<br>
+        Fuentes: McKinsey, Organizational Health Index (2023) · Ulrich, HR from the Outside In (2012) · Drotter, The Leadership Pipeline (2011) · SHL, Proficiency Levels (2022) · McKinsey, 9-Box Grid.
       </div>
     </div>`;
 }
@@ -1231,25 +1212,25 @@ function generateNivelConclusions(sel, filtered, tier) {
   const critical = compAnalysis.filter(c => c.apega.pct <= 70);
   const strengths = compAnalysis.filter(c => c.apega.pct >= 78);
 
-  items.push(`Para <strong>${nivelLabel}</strong> ${tierLabel ? '(Tier ' + tierLabel + ')' : ''}, la Apega de Perfil es <strong>${nivelApega.label} (${nivelApega.pct}%)</strong> con promedio de <strong>${nivelAvg}</strong> sobre ideal de <strong>${nivelIdeal}</strong>. SHL establece que cada nivel debe demostrar dominio diferenciado según su alcance de responsabilidad.`);
+  items.push(`Para <strong>${nivelLabel}</strong> ${tierLabel ? '(Tier ' + tierLabel + ')' : ''}, la Apega de Perfil es <strong>${nivelApega.label} (${nivelApega.pct}%)</strong> con promedio de <strong>${nivelAvg}</strong> sobre ideal de <strong>${nivelIdeal}</strong>. Cada nivel jerárquico tiene expectativas diferenciadas: no se espera lo mismo de un Gerente que de un Coordinador. Este resultado refleja qué tan alineados están los colaboradores de este nivel con lo que su posición demanda.`);
 
   if (critical.length > 0) {
-    items.push(`Se identifican <strong>${critical.length} competencias en Baja Adecuación o Con Reservas</strong> (≤70%): ${critical.slice(0,4).map(c => `<strong>${c.comp}</strong> (${c.apega.label}, ${c.apega.pct}%)`).join(', ')}. Kirkpatrick recomienda priorizar con intervenciones medibles a nivel de comportamiento (Nivel 3) y resultados de negocio (Nivel 4).`);
+    items.push(`Se identifican <strong>${critical.length} competencias por debajo del nivel Adecuado</strong> (≤70%): ${critical.slice(0,5).map(c => `<strong>${c.comp}</strong> (${c.apega.label}, ${c.apega.pct}%)`).join(', ')}. Para estas competencias se recomienda: definir comportamientos observables esperados para este nivel, establecer indicadores de avance medibles, diseñar experiencias de aprendizaje en el puesto (proyectos, rotaciones, asignaciones especiales) y programar revisiones de progreso cada 45 días con el jefe directo.`);
   }
 
   if (strengths.length > 0) {
-    items.push(`Competencias en nivel Óptimo o Sobresaliente (≥78%): ${strengths.slice(-4).reverse().map(c => `<strong>${c.comp}</strong> (${c.apega.label}, ${c.apega.pct}%)`).join(', ')}. Gallup recomienda capitalizar estas fortalezas como base para el desarrollo.`);
+    items.push(`Las competencias en nivel Óptimo o Sobresaliente son: ${strengths.slice(-4).reverse().map(c => `<strong>${c.comp}</strong> (${c.apega.label}, ${c.apega.pct}%)`).join(', ')}. Estos son los diferenciadores de este nivel. Se recomienda identificar a los colaboradores que destacan en estas competencias y convertirlos en referentes internos: pueden facilitar talleres, mentorear a colegas, o liderar comunidades de práctica que propaguen estas fortalezas al resto de la organización.`);
   }
 
   if (sel !== '__all__' && tier) {
     const pipelineAdvice = {
-      'Strategic': 'Los niveles estratégicos deben enfocarse en Visión, Pensamiento Sistémico y Desarrollo de Talento como habilitadores de la cascada organizacional.',
-      'Tactical': 'Los niveles tácticos son el puente entre estrategia y ejecución; las brechas en Planeación y Control de Actividades tienen impacto directo en la productividad operativa.',
-      'Commercial': 'Los roles comerciales requieren desarrollo prioritario en Negociación, Persuasión y Orientación al Servicio como competencias generadoras de ingreso.',
-      'Technical': 'Los roles técnicos deben fortalecer Análisis de Problemas y Sensibilidad a Lineamientos, competencias críticas para calidad y cumplimiento normativo en la industria petrolera.',
-      'Operational': 'Los niveles operativos se benefician de programas enfocados en Responsabilidad, Trabajo en Equipo y Aprendizaje como base para su crecimiento profesional.'
+      'Strategic': 'Para los niveles estratégicos, las prioridades de desarrollo deben centrarse en: capacidad de construir una visión de largo plazo y comunicarla efectivamente al equipo, habilidad para identificar y desarrollar sucesores, y dominio del pensamiento sistémico para tomar decisiones que consideren el impacto en toda la organización. Se sugiere asignar a estos líderes como sponsors de iniciativas estratégicas cross-funcionales y establecer sesiones trimestrales de revisión de talento.',
+      'Tactical': 'Los niveles tácticos son el eslabón clave entre la estrategia y la operación diaria. Las prioridades de desarrollo deben enfocarse en: traducir objetivos estratégicos en planes de acción con entregables claros, dominar la delegación efectiva para multiplicar su impacto, y fortalecer la gestión del desempeño de sus equipos con retroalimentación constante. Se recomienda implementar reuniones semanales de seguimiento con formato estructurado (avances, bloqueos, compromisos).',
+      'Commercial': 'Para los roles comerciales, el desarrollo debe orientarse a: perfeccionar técnicas de negociación consultiva donde el valor para el cliente sea el eje central, fortalecer la capacidad de construir relaciones de largo plazo basadas en confianza, y desarrollar habilidades de presentación y persuasión para reuniones con tomadores de decisión. Se sugiere implementar role-plays semanales con casos reales y acompañamiento en campo con coaches comerciales.',
+      'Technical': 'Los roles técnicos requieren un enfoque dual: mantener la excelencia técnica (Análisis de Problemas, Sensibilidad a Lineamientos) que es crítica para la calidad y seguridad en la industria petrolera, y al mismo tiempo desarrollar competencias de comunicación y trabajo en equipo que les permitan colaborar efectivamente con otras áreas. Se recomienda crear certificaciones internas técnicas y programas de rotación con áreas comerciales u operativas.',
+      'Operational': 'Para los niveles operativos, el desarrollo debe construir los cimientos para el crecimiento profesional: fortalecer Responsabilidad con metas claras y consecuencias consistentes, desarrollar Trabajo en Equipo mediante proyectos colaborativos con objetivos compartidos, y fomentar Aprendizaje continuo con acceso a plataformas de capacitación y tiempo protegido para formación. Se sugiere implementar un programa de "padrinos" donde colaboradores senior acompañen a los más nuevos.'
     };
-    items.push(pipelineAdvice[tier] + ' <em>(Leadership Pipeline, Drotter, 2011)</em>');
+    items.push(pipelineAdvice[tier]);
   }
 
   document.getElementById('conclusionsNivel').innerHTML = `
@@ -1257,8 +1238,8 @@ function generateNivelConclusions(sel, filtered, tier) {
       <h4>Conclusiones — ${sel !== '__all__' ? sel : 'Niveles Jerárquicos'}</h4>
       <ul>${items.map(i => `<li>${i}</li>`).join('')}</ul>
       <div class="source">
-        Clasificación: Apega de Perfil — Baja Adecuación (0-60%), Con Reservas (61-70%), Adecuado (71-77%), Óptimo (78-86%), Sobresaliente (87-100%).<br>
-        Fuentes: SHL — Proficiency Bands (2022); Kirkpatrick — Four Levels (2006); Gallup — Strengths-Based Development (2019); Drotter — Leadership Pipeline (2011).
+        Clasificación Apega de Perfil: Baja Adecuación (0-60%) · Con Reservas (61-70%) · Adecuado (71-77%) · Óptimo (78-86%) · Sobresaliente (87-100%).<br>
+        Fuentes: SHL, Proficiency Bands (2022) · Kirkpatrick, Evaluación de Programas de Capacitación (2006) · Gallup, Strengths-Based Development (2019) · Drotter, The Leadership Pipeline (2011).
       </div>
     </div>`;
 }
@@ -1380,7 +1361,7 @@ function generateDeptoConclusions(subdirSel, deptoSel, filtered, activeDeptos) {
   filtered.forEach(d => { const t = getTier(d.nivel); tiers[t] = (tiers[t] || 0) + 1; });
   const tierBreakdown = Object.entries(tiers).map(([t, n]) => `${TIER_LABELS[t]}: ${n}`).join(', ');
 
-  items.push(`En <strong>${label}</strong> se evalúan <strong>${filtered.length}</strong> personas (${tierBreakdown}). La Apega de Perfil del área es <strong>${areaApega.label} (${areaApega.pct}%)</strong> con promedio de <strong>${filteredAvg}</strong> sobre ideal de <strong>${filteredIdeal}</strong>. Hay Group señala que la composición de niveles jerárquicos impacta directamente en el perfil de competencias esperado.`);
+  items.push(`En <strong>${label}</strong> se evalúan <strong>${filtered.length}</strong> personas (${tierBreakdown}). La Apega de Perfil del área es <strong>${areaApega.label} (${areaApega.pct}%)</strong> con promedio de <strong>${filteredAvg}</strong> sobre ideal de <strong>${filteredIdeal}</strong>. Es importante considerar que la composición de niveles jerárquicos del área influye en el ideal esperado: un departamento con más gerentes tendrá un ideal más alto en competencias de liderazgo, mientras que uno con más analistas tendrá ideales más altos en competencias técnicas.`);
 
   const compRanking = COMPETENCIAS.map(c => {
     const real = avg(filtered.map(d => d.scores[c]).filter(v => v !== null));
@@ -1389,14 +1370,14 @@ function generateDeptoConclusions(subdirSel, deptoSel, filtered, activeDeptos) {
   }).sort((a, b) => a.apega.pct - b.apega.pct);
 
   const areaStrengths = compRanking.filter(c => c.apega.pct >= 78).slice(-3).reverse();
-  const areaGaps = compRanking.filter(c => c.apega.pct <= 70).slice(0, 3);
+  const areaGaps = compRanking.filter(c => c.apega.pct <= 70).slice(0, 4);
 
   if (areaStrengths.length > 0) {
-    items.push(`Competencias en Óptimo o Sobresaliente: ${areaStrengths.map(c => `<strong>${c.comp}</strong> (${c.apega.label}, ${c.apega.pct}%)`).join(', ')}. Prahalad & Hamel sugieren alinear estas fortalezas con la propuesta de valor del área.`);
+    items.push(`Las fortalezas del área (Óptimo o Sobresaliente) son: ${areaStrengths.map(c => `<strong>${c.comp}</strong> (${c.apega.pct}%)`).join(', ')}. Estas competencias reflejan la cultura y las prácticas que el área ha desarrollado con éxito. Se recomienda documentar qué comportamientos concretos están generando estos resultados, reconocer a quienes los demuestran consistentemente, y diseñar procesos de onboarding donde los nuevos integrantes del área sean expuestos a estas prácticas desde el inicio.`);
   }
 
   if (areaGaps.length > 0) {
-    items.push(`Competencias en Baja Adecuación o Con Reservas: ${areaGaps.map(c => `<strong>${c.comp}</strong> (${c.apega.label}, ${c.apega.pct}%)`).join(', ')}. Ulrich & Smallwood recomiendan planes departamentales que conecten competencias individuales con capacidades de la unidad de negocio.`);
+    items.push(`Las competencias por debajo del nivel Adecuado (≤70%) son: ${areaGaps.map(c => `<strong>${c.comp}</strong> (${c.apega.label}, ${c.apega.pct}%)`).join(', ')}. Para cada una se recomienda: (1) Definir 2-3 comportamientos observables que se espera ver en el día a día. (2) Identificar dentro del área o en áreas vecinas a personas que destaquen en esa competencia y puedan servir como modelos. (3) Diseñar una experiencia de aprendizaje mensual (taller, caso práctico, proyecto) enfocada en esa competencia. (4) Incluir el avance en estas competencias como tema de las conversaciones de desempeño.`);
   }
 
   if (activeDeptos.length > 1) {
@@ -1404,9 +1385,10 @@ function generateDeptoConclusions(subdirSel, deptoSel, filtered, activeDeptos) {
       const dData = filtered.filter(d => d.depto === dep);
       const dAvg = avg(dData.flatMap(d => Object.values(d.scores).filter(v => v !== null)));
       const dIdeal = avg(dData.map(d => avg(COMPETENCIAS.map(c => getIdeal(c, d.nivel)))));
-      return { name: dep, apega: getApega(dAvg, dIdeal) };
+      return { name: dep, apega: getApega(dAvg, dIdeal), count: dData.length };
     }).sort((a, b) => b.apega.pct - a.apega.pct);
-    items.push(`Dentro de ${label}, el departamento con mejor apega es <strong>${deptApega[0].name}</strong> (${deptApega[0].apega.label}, ${deptApega[0].apega.pct}%) y el de mayor oportunidad es <strong>${deptApega[deptApega.length-1].name}</strong> (${deptApega[deptApega.length-1].apega.label}, ${deptApega[deptApega.length-1].apega.pct}%). Adams señala que dispersiones significativas entre equipos pueden afectar percepciones de equidad y engagement.`);
+    const spread = deptApega[0].apega.pct - deptApega[deptApega.length-1].apega.pct;
+    items.push(`Dentro de ${label}, el departamento con mejor apega es <strong>${deptApega[0].name}</strong> (${deptApega[0].apega.label}, ${deptApega[0].apega.pct}%, ${deptApega[0].count} personas) y el de mayor oportunidad es <strong>${deptApega[deptApega.length-1].name}</strong> (${deptApega[deptApega.length-1].apega.label}, ${deptApega[deptApega.length-1].apega.pct}%, ${deptApega[deptApega.length-1].count} personas). ${spread > 15 ? 'La diferencia de ' + spread + ' puntos porcentuales es significativa y sugiere condiciones de desarrollo muy distintas entre equipos. Se recomienda investigar las causas: rotación, antigüedad del equipo, estilo de liderazgo del responsable, o acceso diferenciado a oportunidades de desarrollo.' : 'Los departamentos muestran resultados relativamente homogéneos, lo que indica consistencia en las prácticas de gestión del área.'}`);
   }
 
   document.getElementById('conclusionsDepto').innerHTML = `
@@ -1414,8 +1396,8 @@ function generateDeptoConclusions(subdirSel, deptoSel, filtered, activeDeptos) {
       <h4>Conclusiones — ${label}</h4>
       <ul>${items.map(i => `<li>${i}</li>`).join('')}</ul>
       <div class="source">
-        Clasificación: Apega de Perfil — Baja Adecuación (0-60%), Con Reservas (61-70%), Adecuado (71-77%), Óptimo (78-86%), Sobresaliente (87-100%).<br>
-        Fuentes: Hay Group — Organizational Climate (2020); Prahalad & Hamel — Core Competence, HBR (1990); Ulrich & Smallwood — Organizational Capabilities (2004); Adams — Equity Theory (1963).
+        Clasificación Apega de Perfil: Baja Adecuación (0-60%) · Con Reservas (61-70%) · Adecuado (71-77%) · Óptimo (78-86%) · Sobresaliente (87-100%).<br>
+        Fuentes: Hay Group, Organizational Climate (2020) · Prahalad & Hamel, Core Competence of the Corporation (1990) · Ulrich & Smallwood, Organizational Capabilities (2004) · Adams, Equity Theory (1963).
       </div>
     </div>`;
 }
