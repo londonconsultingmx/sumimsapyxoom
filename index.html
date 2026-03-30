@@ -166,10 +166,48 @@ tr:hover td { background:#f8fafc; }
 .conclusions li { font-size:13px; line-height:1.7; padding:4px 0; padding-left:16px; position:relative; }
 .conclusions li::before { content:""; position:absolute; left:0; top:11px; width:6px; height:6px; border-radius:50%; background:var(--accent); }
 .conclusions .source { margin-top:12px; padding-top:10px; border-top:1px solid var(--border); font-size:11px; color:var(--text-muted); font-style:italic; }
+
+/* Login screen */
+.login-overlay { position:fixed; inset:0; background:#fff; z-index:9999; display:flex; align-items:center; justify-content:center; }
+.login-box { width:100%; max-width:400px; padding:48px 40px; text-align:center; }
+.login-box .login-logo { height:48px; margin-bottom:32px; }
+.login-box h2 { font-size:20px; font-weight:600; color:var(--primary); margin-bottom:6px; }
+.login-box .login-sub { font-size:13px; color:var(--text-muted); margin-bottom:32px; }
+.login-box .login-field { width:100%; margin-bottom:16px; }
+.login-box .login-field label { display:block; text-align:left; font-size:12px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
+.login-box .login-field input { width:100%; padding:12px 16px; border:1px solid var(--border); border-radius:10px; font-size:14px; font-family:inherit; transition:all .2s; background:#fafbfc; }
+.login-box .login-field input:focus { outline:none; border-color:var(--primary-light); box-shadow:0 0 0 3px rgba(26,60,110,.1); background:#fff; }
+.login-box .login-btn { width:100%; padding:14px; border:none; border-radius:10px; background:var(--primary); color:#fff; font-size:15px; font-weight:600; font-family:inherit; cursor:pointer; transition:all .2s; margin-top:8px; }
+.login-box .login-btn:hover { background:var(--primary-light); transform:translateY(-1px); box-shadow:0 4px 12px rgba(26,60,110,.25); }
+.login-error { color:var(--danger); font-size:13px; margin-top:12px; min-height:20px; }
+.login-footer { margin-top:32px; font-size:11px; color:var(--text-muted); }
 </style>
 </head>
 <body>
 
+<!-- LOGIN SCREEN -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-box">
+    <img src="data:image/png;base64,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" alt="Sumimsa" class="login-logo">
+    <h2>Plataforma de Competencias</h2>
+    <p class="login-sub">Pyxoom · Evaluación de Competencias Organizacionales</p>
+    <form onsubmit="return handleLogin(event)">
+      <div class="login-field">
+        <label>Usuario</label>
+        <input type="text" id="loginUser" placeholder="Ingresa tu usuario" autocomplete="username">
+      </div>
+      <div class="login-field">
+        <label>Código de acceso</label>
+        <input type="password" id="loginPass" placeholder="Ingresa tu código" autocomplete="current-password">
+      </div>
+      <button type="submit" class="login-btn">Ingresar</button>
+    </form>
+    <div class="login-error" id="loginError"></div>
+    <div class="login-footer">Sumimsa · London Consulting Group</div>
+  </div>
+</div>
+
+<div id="appContainer" style="display:none;">
 <div class="header">
   <div class="header-left">
     <img src="data:image/png;base64,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" alt="Sumimsa" class="logo-img">
@@ -341,6 +379,7 @@ tr:hover td { background:#f8fafc; }
     </div>
   </div>
 </div>
+</div><!-- /appContainer -->
 
 <script>
 // ─── STATE ───
@@ -1582,7 +1621,34 @@ function renderComparativo() {
   document.getElementById('comparativoTable').innerHTML = tableHtml;
 }
 
+// ─── LOGIN ───
+function handleLogin(e) {
+  e.preventDefault();
+  const user = document.getElementById('loginUser').value.trim();
+  const pass = document.getElementById('loginPass').value;
+  if (user === 'Capital_Humano_Sumimsa' && pass === 'Geminis01') {
+    sessionStorage.setItem('pyxoom_auth', '1');
+    showApp();
+    return false;
+  }
+  document.getElementById('loginError').textContent = 'Usuario o código de acceso incorrecto';
+  document.getElementById('loginPass').value = '';
+  return false;
+}
+
+function showApp() {
+  document.getElementById('loginOverlay').style.display = 'none';
+  document.getElementById('appContainer').style.display = '';
+}
+
+function checkAuth() {
+  if (sessionStorage.getItem('pyxoom_auth') === '1') {
+    showApp();
+  }
+}
+
 // ─── INIT ───
+checkAuth();
 setupFileHandlers();
 loadCortes();
 </script>
