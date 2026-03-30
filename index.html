@@ -633,7 +633,7 @@ function parseWorkbook(wb, log, fileName) {
     const scores = {};
     for (const comp of bestComps.competencias) {
       const val = parseFloat(row[comp]);
-      scores[comp] = (isNaN(val) ? null : Math.min(5, Math.max(0, val)));
+      scores[comp] = (isNaN(val) || val > 5.5 || val < 0) ? null : Math.round(val * 10) / 10;
     }
     if (Object.values(scores).some(v => v !== null)) {
       parsedData.push({ nombre, nivel, depto, subdir, puesto, ubicacion, scores });
