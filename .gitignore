@@ -1,0 +1,16 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Data files (no commitear datos de cliente)
+data/*.xlsx
+data/*.xls
+data/*.csv
+
+# Node (si se agregan dependencias después)
+node_modules/
+package-lock.json
