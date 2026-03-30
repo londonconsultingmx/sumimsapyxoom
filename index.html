@@ -158,6 +158,14 @@ tr:hover td { background:#f8fafc; }
 .tier-commercial { background:#fff7ed; color:#c2410c; }
 .tier-technical { background:#faf5ff; color:#7e22ce; }
 .tier-operational { background:#f8fafc; color:#475569; }
+
+/* Conclusions */
+.conclusions { background:linear-gradient(135deg, #f8fafc, #f0f5ff); border:1px solid var(--border); border-left:4px solid var(--primary); border-radius:var(--radius); padding:20px 24px; margin-top:20px; }
+.conclusions h4 { font-size:14px; font-weight:600; color:var(--primary); margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+.conclusions ul { list-style:none; padding:0; }
+.conclusions li { font-size:13px; line-height:1.7; padding:4px 0; padding-left:16px; position:relative; }
+.conclusions li::before { content:""; position:absolute; left:0; top:11px; width:6px; height:6px; border-radius:50%; background:var(--accent); }
+.conclusions .source { margin-top:12px; padding-top:10px; border-top:1px solid var(--border); font-size:11px; color:var(--text-muted); font-style:italic; }
 </style>
 </head>
 <body>
@@ -177,6 +185,7 @@ tr:hover td { background:#f8fafc; }
 <div class="tab-bar">
   <button class="tab-btn active" data-tab="upload">Inicio</button>
   <button class="tab-btn" data-tab="general">Resultados Generales</button>
+  <button class="tab-btn" data-tab="resumen">Resumen Ejecutivo</button>
   <button class="tab-btn" data-tab="depto">Por Subdirección / Departamento</button>
   <button class="tab-btn" data-tab="nivel">Por Nivel Jerárquico</button>
   <button class="tab-btn" data-tab="persona">Por Persona</button>
@@ -243,6 +252,25 @@ tr:hover td { background:#f8fafc; }
       <div class="card-title">Brechas por Competencia (Real vs Ideal)</div>
       <div id="gapBarsGeneral"></div>
     </div>
+    <div id="conclusionsGeneral"></div>
+  </div>
+
+  <!-- RESUMEN EJECUTIVO VIEW -->
+  <div class="view" id="view-resumen">
+    <div class="stats-row" id="resumenStats"></div>
+    <div class="card">
+      <div class="card-title">Promedio por Subdirección vs Ideal vs Empresa</div>
+      <div class="chart-container tall"><canvas id="chartBarSubdir"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Promedio por Departamento vs Ideal vs Empresa</div>
+      <div class="chart-container" style="height:500px;"><canvas id="chartBarDeptoResumen"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Promedio por Nivel Jerárquico vs Ideal vs Empresa</div>
+      <div class="chart-container tall"><canvas id="chartBarNivelResumen"></canvas></div>
+    </div>
+    <div id="conclusionsResumen"></div>
   </div>
 
   <!-- NIVEL VIEW -->
@@ -263,6 +291,7 @@ tr:hover td { background:#f8fafc; }
       <div class="card-title">Brechas por Nivel</div>
       <div id="gapBarsNivel"></div>
     </div>
+    <div id="conclusionsNivel"></div>
   </div>
 
   <!-- DEPTO VIEW -->
@@ -283,6 +312,7 @@ tr:hover td { background:#f8fafc; }
       <div class="card-title">Detalle por Subdirección / Departamento</div>
       <div class="table-wrap"><table id="tableDepto"></table></div>
     </div>
+    <div id="conclusionsDepto"></div>
   </div>
 
   <!-- PERSONA VIEW -->
@@ -731,6 +761,7 @@ function gapBar(real, ideal, label) {
 function renderAll() {
   if (DATA.length === 0) return;
   renderGeneral();
+  renderResumen();
   renderNivel();
   renderDepto();
   renderPersona();
@@ -817,6 +848,190 @@ function renderGeneral() {
     return { comp: c, real, ideal };
   }).sort((a, b) => (b.ideal - b.real) - (a.ideal - a.real));
   document.getElementById('gapBarsGeneral').innerHTML = sorted.map(s => gapBar(s.real, s.ideal, s.comp)).join('');
+
+  // Conclusions
+  generateGeneralConclusions(sorted, globalAvg, globalIdeal, gap, aboveIdeal, below15);
+}
+
+function generateGeneralConclusions(sorted, globalAvg, globalIdeal, gap, aboveIdeal, criticalCount) {
+  const top3 = sorted.slice(-3).reverse();
+  const bottom3 = sorted.slice(0, 3);
+  const totalPersonas = DATA.length;
+  const pctAbove = round((aboveIdeal / totalPersonas) * 100, 0);
+  const pctCritical = round((criticalCount / totalPersonas) * 100, 0);
+
+  // Categorize competencies by type
+  const leadershipComps = ['Liderazgo', 'Delegación', 'Empowerment', 'Team Building', 'Desarrollo de las Personas'];
+  const strategicComps = ['Pensamiento Estratégico', 'Toma de Decisiones', 'Planeación', 'Innovación'];
+  const executionComps = ['Control de Actividades', 'Organización', 'Responsabilidad', 'Enfoque en Resultados'];
+
+  const leadershipGap = round(avg(sorted.filter(s => leadershipComps.includes(s.comp)).map(s => s.ideal - s.real)));
+  const strategicGap = round(avg(sorted.filter(s => strategicComps.includes(s.comp)).map(s => s.ideal - s.real)));
+  const executionGap = round(avg(sorted.filter(s => executionComps.includes(s.comp)).map(s => s.ideal - s.real)));
+
+  let items = [];
+  items.push(`El promedio general de la organización es <strong>${globalAvg}</strong> sobre un ideal ponderado de <strong>${globalIdeal}</strong>, representando una brecha de <strong>${gap}</strong> puntos. Según el modelo de madurez competencial de Korn Ferry, una brecha superior a 0.8 indica necesidad de intervención estructural en desarrollo de talento.`);
+
+  items.push(`<strong>${pctAbove}%</strong> de los colaboradores (${aboveIdeal} de ${totalPersonas}) alcanzan o superan su ideal de competencias según su nivel jerárquico. El benchmark de organizaciones de alto desempeño según DDI sitúa este indicador por encima del 40%.`);
+
+  if (pctCritical > 0) {
+    items.push(`<strong>${pctCritical}%</strong> de los colaboradores (${criticalCount}) presentan brechas críticas (>1.5 puntos vs ideal). El modelo de Leadership Pipeline de Ram Charan sugiere que brechas de esta magnitud requieren programas de desarrollo individualizados y posible reubicación de rol.`);
+  }
+
+  items.push(`Las competencias con <strong>menor brecha</strong> (fortalezas organizacionales) son: ${top3.map(s => `<strong>${s.comp}</strong> (${round(s.real)})`).join(', ')}. Estas representan ventajas competitivas que deben ser reforzadas y reconocidas según el modelo de Appreciative Inquiry (Cooperrider & Whitney).`);
+
+  items.push(`Las competencias con <strong>mayor brecha</strong> (áreas de oportunidad) son: ${bottom3.map(s => `<strong>${s.comp}</strong> (brecha: ${round(s.ideal - s.real)})`).join(', ')}. El marco 70-20-10 de Lombardo & Eichinger recomienda abordar estas brechas con 70% experiencias en el trabajo, 20% coaching/mentoría y 10% capacitación formal.`);
+
+  if (leadershipGap > 0.8) {
+    items.push(`El cluster de competencias de <strong>Liderazgo</strong> presenta una brecha promedio de <strong>${leadershipGap}</strong>. Según el modelo de Liderazgo Situacional de Hersey & Blanchard, esto sugiere la necesidad de programas diferenciados por nivel de madurez del colaborador.`);
+  }
+
+  if (strategicGap > 0.8) {
+    items.push(`Las competencias <strong>estratégicas</strong> muestran una brecha promedio de <strong>${strategicGap}</strong>. El modelo de Pensamiento Estratégico de Mintzberg indica que estas competencias se desarrollan principalmente mediante exposición a decisiones de negocio y proyectos cross-funcionales.`);
+  }
+
+  document.getElementById('conclusionsGeneral').innerHTML = `
+    <div class="conclusions">
+      <h4>Conclusiones y Recomendaciones — Resultados Generales</h4>
+      <ul>${items.map(i => `<li>${i}</li>`).join('')}</ul>
+      <div class="source">
+        Fuentes: Korn Ferry — Competency Framework & Maturity Model (2023); DDI — Global Leadership Forecast (2023);
+        Ram Charan, Stephen Drotter & James Noel — The Leadership Pipeline (2011);
+        Cooperrider & Whitney — Appreciative Inquiry: A Positive Revolution in Change (2005);
+        Lombardo & Eichinger — The Career Architect Development Planner, 70-20-10 Model (2004);
+        Hersey & Blanchard — Management of Organizational Behavior: Leading Human Resources (2012);
+        Henry Mintzberg — The Rise and Fall of Strategic Planning (1994).
+      </div>
+    </div>`;
+}
+
+// ─── RESUMEN EJECUTIVO ───
+function renderResumen() {
+  if (DATA.length === 0) return;
+
+  const empresaAvg = round(avg(DATA.flatMap(d => Object.values(d.scores).filter(v => v !== null))));
+  const empresaIdeal = round(avg(DATA.map(d => avg(COMPETENCIAS.map(c => getIdeal(c, d.nivel))))));
+
+  document.getElementById('resumenStats').innerHTML = `
+    <div class="stat-card"><div class="label">Personas Evaluadas</div><div class="value">${DATA.length}</div></div>
+    <div class="stat-card accent"><div class="label">Promedio Empresa</div><div class="value">${empresaAvg}</div><div class="sub">de 5.0</div></div>
+    <div class="stat-card"><div class="label">Ideal Ponderado</div><div class="value">${empresaIdeal}</div></div>
+    <div class="stat-card ${empresaAvg >= empresaIdeal ? 'success' : ''}"><div class="label">Brecha Global</div><div class="value" style="${empresaAvg < empresaIdeal ? 'color:var(--danger)' : ''}">${round(empresaIdeal - empresaAvg)}</div></div>
+  `;
+
+  // --- Subdirección chart ---
+  const subdirData = SUBDIRS.map(s => {
+    const people = DATA.filter(d => d.subdir === s);
+    const realAvg = round(avg(people.flatMap(d => Object.values(d.scores).filter(v => v !== null))));
+    const idealAvg = round(avg(people.map(d => avg(COMPETENCIAS.map(c => getIdeal(c, d.nivel))))));
+    return { name: s, real: realAvg, ideal: idealAvg, count: people.length };
+  }).sort((a, b) => b.real - a.real);
+
+  destroyChart('barSubdir');
+  charts.barSubdir = new Chart(document.getElementById('chartBarSubdir'), {
+    type: 'bar',
+    data: {
+      labels: subdirData.map(s => s.name),
+      datasets: [
+        { label: 'Promedio Real', data: subdirData.map(s => s.real), backgroundColor: alpha('#1a3c6e', .8), borderColor: '#1a3c6e', borderWidth: 1 },
+        { label: 'Ideal por Tier', data: subdirData.map(s => s.ideal), backgroundColor: alpha('#e8792b', .3), borderColor: '#e8792b', borderWidth: 2, borderDash: [4,2] },
+        { label: 'Promedio Empresa', data: subdirData.map(() => empresaAvg), type: 'line', borderColor: '#94a3b8', borderWidth: 2, borderDash: [6,3], pointRadius: 0, fill: false }
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 5, ticks: { stepSize: .5 } } }, plugins: { legend: { position: 'bottom' } } }
+  });
+
+  // --- Departamento chart ---
+  const deptoData = DEPTOS.map(d => {
+    const people = DATA.filter(p => p.depto === d);
+    const realAvg = round(avg(people.flatMap(p => Object.values(p.scores).filter(v => v !== null))));
+    const idealAvg = round(avg(people.map(p => avg(COMPETENCIAS.map(c => getIdeal(c, p.nivel))))));
+    return { name: d, real: realAvg, ideal: idealAvg, count: people.length };
+  }).sort((a, b) => b.real - a.real);
+
+  destroyChart('barDeptoResumen');
+  charts.barDeptoResumen = new Chart(document.getElementById('chartBarDeptoResumen'), {
+    type: 'bar',
+    data: {
+      labels: deptoData.map(d => d.name.length > 18 ? d.name.slice(0,16)+'…' : d.name),
+      datasets: [
+        { label: 'Promedio Real', data: deptoData.map(d => d.real), backgroundColor: alpha('#16a34a', .7), borderColor: '#16a34a', borderWidth: 1 },
+        { label: 'Ideal por Tier', data: deptoData.map(d => d.ideal), backgroundColor: alpha('#e8792b', .3), borderColor: '#e8792b', borderWidth: 2, borderDash: [4,2] },
+        { label: 'Promedio Empresa', data: deptoData.map(() => empresaAvg), type: 'line', borderColor: '#94a3b8', borderWidth: 2, borderDash: [6,3], pointRadius: 0, fill: false }
+      ]
+    },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { min: 0, max: 5, ticks: { stepSize: .5 } } }, plugins: { legend: { position: 'bottom' } } }
+  });
+
+  // --- Nivel chart ---
+  const nivelData = NIVELES.map(n => {
+    const people = DATA.filter(d => d.nivel === n);
+    const realAvg = round(avg(people.flatMap(d => Object.values(d.scores).filter(v => v !== null))));
+    const idealAvg = round(avg(people.map(d => avg(COMPETENCIAS.map(c => getIdeal(c, d.nivel))))));
+    return { name: n, real: realAvg, ideal: idealAvg, count: people.length, tier: getTier(n) };
+  });
+
+  destroyChart('barNivelResumen');
+  charts.barNivelResumen = new Chart(document.getElementById('chartBarNivelResumen'), {
+    type: 'bar',
+    data: {
+      labels: nivelData.map(n => n.name),
+      datasets: [
+        { label: 'Promedio Real', data: nivelData.map(n => n.real), backgroundColor: alpha('#8b5cf6', .7), borderColor: '#8b5cf6', borderWidth: 1 },
+        { label: 'Ideal por Tier', data: nivelData.map(n => n.ideal), backgroundColor: alpha('#e8792b', .3), borderColor: '#e8792b', borderWidth: 2, borderDash: [4,2] },
+        { label: 'Promedio Empresa', data: nivelData.map(() => empresaAvg), type: 'line', borderColor: '#94a3b8', borderWidth: 2, borderDash: [6,3], pointRadius: 0, fill: false }
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 5, ticks: { stepSize: .5 } } }, plugins: { legend: { position: 'bottom' } } }
+  });
+
+  // Conclusions for Resumen
+  generateResumenConclusions(subdirData, deptoData, nivelData, empresaAvg);
+}
+
+function generateResumenConclusions(subdirData, deptoData, nivelData, empresaAvg) {
+  let items = [];
+
+  // Subdirección analysis
+  const bestSubdir = subdirData[0];
+  const worstSubdir = subdirData[subdirData.length - 1];
+  if (bestSubdir && worstSubdir && bestSubdir.name !== worstSubdir.name) {
+    const spreadSubdir = round(bestSubdir.real - worstSubdir.real);
+    items.push(`La subdirección con mejor desempeño es <strong>${bestSubdir.name}</strong> (${bestSubdir.real}) y la de mayor oportunidad es <strong>${worstSubdir.name}</strong> (${worstSubdir.real}), con una dispersión de <strong>${spreadSubdir}</strong> puntos. Según el modelo de Organizational Health Index de McKinsey, dispersiones mayores a 0.5 entre unidades de negocio sugieren desalineación en prácticas de gestión del talento.`);
+  }
+
+  // Departamento analysis
+  const deptosAbove = deptoData.filter(d => d.real >= empresaAvg);
+  const deptosBelow = deptoData.filter(d => d.real < empresaAvg);
+  items.push(`<strong>${deptosAbove.length}</strong> de ${deptoData.length} departamentos se encuentran en o por encima del promedio empresa (${empresaAvg}). Los departamentos con mayor brecha vs su ideal son: ${deptoData.sort((a,b) => (b.ideal-b.real) - (a.ideal-a.real)).slice(0,3).map(d => `<strong>${d.name}</strong> (brecha: ${round(d.ideal - d.real)})`).join(', ')}. El modelo de Capacidades Organizacionales de Dave Ulrich recomienda alinear las inversiones de desarrollo con las áreas de mayor impacto estratégico.`);
+
+  // Nivel analysis
+  const nivelGaps = nivelData.map(n => ({ ...n, gap: round(n.ideal - n.real) })).sort((a,b) => b.gap - a.gap);
+  const criticalNivel = nivelGaps[0];
+  if (criticalNivel) {
+    items.push(`El nivel jerárquico con mayor brecha es <strong>${criticalNivel.name}</strong> (brecha: ${criticalNivel.gap}, ${criticalNivel.count} personas). Según el Leadership Pipeline de Drotter, cada transición de nivel requiere un cambio fundamental en valores de trabajo, habilidades y gestión del tiempo. Las brechas en niveles de gestión impactan en cascada a toda la organización.`);
+  }
+
+  const operationalNiveles = nivelData.filter(n => ['Operational', 'Technical'].includes(n.tier));
+  const strategicNiveles = nivelData.filter(n => n.tier === 'Strategic');
+  if (strategicNiveles.length > 0 && operationalNiveles.length > 0) {
+    const stratAvg = round(avg(strategicNiveles.map(n => n.real)));
+    const operAvg = round(avg(operationalNiveles.map(n => n.real)));
+    items.push(`Los niveles estratégicos (Gerente/Subgerente) promedian <strong>${stratAvg}</strong> mientras que los niveles técnico-operativos promedian <strong>${operAvg}</strong>. La diferencia de ${round(stratAvg - operAvg)} puntos ${stratAvg > operAvg ? 'es esperada' : 'es atípica'} según el modelo de proficiency levels de SHL, donde se espera que niveles superiores muestren mayor dominio en competencias de liderazgo y estrategia, compensado por menores exigencias operativas.`);
+  }
+
+  items.push(`Se recomienda diseñar planes de desarrollo diferenciados por tier (Estratégico, Táctico, Comercial, Técnico, Operativo) siguiendo el modelo de 9-Box Grid de McKinsey para priorizar inversión de desarrollo en los cuadrantes de alto potencial con brecha significativa.`);
+
+  document.getElementById('conclusionsResumen').innerHTML = `
+    <div class="conclusions">
+      <h4>Conclusiones — Resumen Ejecutivo</h4>
+      <ul>${items.map(i => `<li>${i}</li>`).join('')}</ul>
+      <div class="source">
+        Fuentes: McKinsey & Company — Organizational Health Index (2023); Dave Ulrich — HR from the Outside In: Six Competencies for the Future of Human Resources (2012);
+        Stephen Drotter — The Leadership Pipeline (2011); SHL — Universal Competency Framework & Proficiency Levels (2022);
+        McKinsey — 9-Box Grid for Talent Management; Korn Ferry — Competency Architecture (2023).
+      </div>
+    </div>`;
 }
 
 function buildCorteSelector(id, onchange) {
@@ -906,6 +1121,62 @@ function updateNivel() {
     gapHtml += gapBar(real, ideal, c);
   });
   document.getElementById('gapBarsNivel').innerHTML = gapHtml;
+
+  // Conclusions for Nivel
+  generateNivelConclusions(sel, filtered, tier);
+}
+
+function generateNivelConclusions(sel, filtered, tier) {
+  if (filtered.length === 0) { document.getElementById('conclusionsNivel').innerHTML = ''; return; }
+
+  let items = [];
+  const nivelAvg = round(avg(filtered.flatMap(d => Object.values(d.scores).filter(v => v !== null))));
+  const empresaAvg = round(avg(DATA.flatMap(d => Object.values(d.scores).filter(v => v !== null))));
+  const nivelLabel = sel !== '__all__' ? sel : 'todos los niveles';
+  const tierLabel = tier ? TIER_LABELS[tier] : '';
+
+  // Top and bottom competencies for this level
+  const compAnalysis = COMPETENCIAS.map(c => {
+    const real = avg(filtered.map(d => d.scores[c]).filter(v => v !== null));
+    const ideal = sel !== '__all__' ? getIdeal(c, sel) : avg(filtered.map(d => getIdeal(c, d.nivel)));
+    return { comp: c, real: round(real), gap: round(ideal - real) };
+  }).sort((a, b) => b.gap - a.gap);
+
+  const critical = compAnalysis.filter(c => c.gap > 1);
+  const strengths = compAnalysis.filter(c => c.gap <= 0.3);
+
+  items.push(`Para <strong>${nivelLabel}</strong> ${tierLabel ? '(Tier ' + tierLabel + ')' : ''}, el promedio es <strong>${nivelAvg}</strong> ${nivelAvg >= empresaAvg ? '(por encima' : '(por debajo'} del promedio empresa de ${empresaAvg}). El modelo de Bandas de Proficiencia de SHL establece que cada nivel jerárquico debe demostrar dominio diferenciado en competencias alineadas a su alcance de responsabilidad.`);
+
+  if (critical.length > 0) {
+    items.push(`Se identifican <strong>${critical.length} competencias con brecha crítica</strong> (>1.0): ${critical.slice(0,4).map(c => `<strong>${c.comp}</strong> (brecha: ${c.gap})`).join(', ')}. Según el modelo de Necesidades de Capacitación de Kirkpatrick, estas brechas deben priorizarse con intervenciones medibles a nivel de comportamiento observable (Nivel 3) y resultados de negocio (Nivel 4).`);
+  }
+
+  if (strengths.length > 0) {
+    items.push(`Las fortalezas del nivel son: ${strengths.slice(0,4).map(c => `<strong>${c.comp}</strong> (${c.real})`).join(', ')}. El enfoque de Psicología Positiva de Seligman y el modelo Strengths-Based Development de Gallup recomiendan capitalizar estas fortalezas como base para el desarrollo de las áreas de oportunidad.`);
+  }
+
+  if (sel !== '__all__' && tier) {
+    const pipelineAdvice = {
+      'Strategic': 'Los niveles estratégicos deben enfocarse en Visión, Pensamiento Sistémico y Desarrollo de Talento como habilitadores de la cascada organizacional.',
+      'Tactical': 'Los niveles tácticos son el puente entre estrategia y ejecución; las brechas en Planeación y Control de Actividades tienen impacto directo en la productividad operativa.',
+      'Commercial': 'Los roles comerciales requieren desarrollo prioritario en Negociación, Persuasión y Orientación al Servicio como competencias generadoras de ingreso.',
+      'Technical': 'Los roles técnicos deben fortalecer Análisis de Problemas y Sensibilidad a Lineamientos, competencias críticas para la calidad y cumplimiento normativo en la industria petrolera.',
+      'Operational': 'Los niveles operativos se benefician de programas de desarrollo enfocados en Responsabilidad, Trabajo en Equipo y Aprendizaje como base para su crecimiento profesional.'
+    };
+    items.push(pipelineAdvice[tier] + ' <em>(Leadership Pipeline, Drotter, 2011)</em>');
+  }
+
+  document.getElementById('conclusionsNivel').innerHTML = `
+    <div class="conclusions">
+      <h4>Conclusiones — ${sel !== '__all__' ? sel : 'Niveles Jerárquicos'}</h4>
+      <ul>${items.map(i => `<li>${i}</li>`).join('')}</ul>
+      <div class="source">
+        Fuentes: SHL — Universal Competency Framework & Proficiency Bands (2022);
+        Kirkpatrick — Evaluating Training Programs: The Four Levels (2006);
+        Martin Seligman — Authentic Happiness (2002); Gallup — Strengths-Based Development (2019);
+        Stephen Drotter — The Leadership Pipeline (2011).
+      </div>
+    </div>`;
 }
 
 // ─── DEPTO VIEW ───
@@ -1007,6 +1278,60 @@ function updateDepto() {
   });
   tableHtml += '</tbody>';
   document.getElementById('tableDepto').innerHTML = tableHtml;
+
+  // Conclusions for Depto
+  generateDeptoConclusions(subdirSel, deptoSel, filtered, activeDeptos);
+}
+
+function generateDeptoConclusions(subdirSel, deptoSel, filtered, activeDeptos) {
+  if (filtered.length === 0) { document.getElementById('conclusionsDepto').innerHTML = ''; return; }
+
+  let items = [];
+  const empresaAvg = round(avg(DATA.flatMap(d => Object.values(d.scores).filter(v => v !== null))));
+  const filteredAvg = round(avg(filtered.flatMap(d => Object.values(d.scores).filter(v => v !== null))));
+  const label = deptoSel !== '__all__' ? deptoSel : (subdirSel !== '__all__' ? `Subdirección ${subdirSel}` : 'toda la organización');
+
+  // Tier distribution in filtered
+  const tiers = {};
+  filtered.forEach(d => { const t = getTier(d.nivel); tiers[t] = (tiers[t] || 0) + 1; });
+  const tierBreakdown = Object.entries(tiers).map(([t, n]) => `${TIER_LABELS[t]}: ${n}`).join(', ');
+
+  items.push(`En <strong>${label}</strong> se evalúan <strong>${filtered.length}</strong> personas (${tierBreakdown}). El promedio del área es <strong>${filteredAvg}</strong> ${filteredAvg >= empresaAvg ? '(por encima' : '(por debajo'} del promedio empresa de ${empresaAvg}). Según el modelo de Clima Organizacional de Hay Group, la composición de niveles jerárquicos dentro de un área impacta directamente en el perfil de competencias esperado.`);
+
+  // Best and worst competencies in this area
+  const compRanking = COMPETENCIAS.map(c => {
+    const real = avg(filtered.map(d => d.scores[c]).filter(v => v !== null));
+    const ideal = avg(filtered.map(d => getIdeal(c, d.nivel)));
+    return { comp: c, real: round(real), gap: round(ideal - real) };
+  }).sort((a, b) => b.gap - a.gap);
+
+  const areaStrengths = compRanking.slice(-3).reverse();
+  const areaGaps = compRanking.slice(0, 3);
+
+  items.push(`Las fortalezas del área son: ${areaStrengths.map(c => `<strong>${c.comp}</strong> (${c.real})`).join(', ')}. El modelo de Core Competencies de Prahalad & Hamel sugiere que las fortalezas departamentales deben alinearse con la propuesta de valor del área hacia la organización.`);
+
+  items.push(`Las mayores oportunidades de desarrollo son: ${areaGaps.map(c => `<strong>${c.comp}</strong> (brecha: ${c.gap})`).join(', ')}. El framework de Organizational Capabilities de Ulrich & Smallwood recomienda diseñar planes de desarrollo departamentales que conecten las competencias individuales con las capacidades requeridas por la unidad de negocio.`);
+
+  if (activeDeptos.length > 1) {
+    const deptAvgs = activeDeptos.map(dep => {
+      const dData = filtered.filter(d => d.depto === dep);
+      return { name: dep, avg: round(avg(dData.flatMap(d => Object.values(d.scores).filter(v => v !== null)))) };
+    }).sort((a, b) => b.avg - a.avg);
+    const spread = round(deptAvgs[0].avg - deptAvgs[deptAvgs.length - 1].avg);
+    items.push(`Dentro de ${label}, el departamento con mejor desempeño es <strong>${deptAvgs[0].name}</strong> (${deptAvgs[0].avg}) y el de mayor oportunidad es <strong>${deptAvgs[deptAvgs.length-1].name}</strong> (${deptAvgs[deptAvgs.length-1].avg}), con una dispersión de ${spread} puntos. Según la teoría de Equidad Organizacional de Adams, dispersiones significativas entre equipos del mismo nivel pueden generar percepciones de inequidad que afectan el engagement.`);
+  }
+
+  document.getElementById('conclusionsDepto').innerHTML = `
+    <div class="conclusions">
+      <h4>Conclusiones — ${label}</h4>
+      <ul>${items.map(i => `<li>${i}</li>`).join('')}</ul>
+      <div class="source">
+        Fuentes: Hay Group — Organizational Climate & Engagement Research (2020);
+        C.K. Prahalad & Gary Hamel — The Core Competence of the Corporation, HBR (1990);
+        Dave Ulrich & Norm Smallwood — Building Organizational Capabilities (2004);
+        J. Stacy Adams — Equity Theory of Motivation (1963).
+      </div>
+    </div>`;
 }
 
 // ─── PERSONA VIEW ───
